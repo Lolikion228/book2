@@ -6,6 +6,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import StratifiedKFold,GridSearchCV
+
+
+
 df=pd.read_csv('spaceship-titanic/train.csv')
 
 y=df['Transported'].map(int).values
@@ -167,3 +171,11 @@ X_std=ss.fit_transform(X_std)
 # print(ksvm.score(X,y))
 # ksvm.fit(X_std,y)
 # print(ksvm.score(X_std,y))
+
+# tree=DecisionTreeClassifier(criterion='entropy',max_depth=30)
+# tree.fit(X,y)
+# print(tree.score(X,y))
+# tree.fit(X_std,y)
+# print(tree.score(X_std,y))
+
+
