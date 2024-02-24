@@ -6,8 +6,10 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler
-from sklearn.model_selection import StratifiedKFold,GridSearchCV
-
+from sklearn.model_selection import StratifiedKFold,GridSearchCV,train_test_split,cross_val_score
+from sklearn.ensemble import BaggingClassifier,AdaBoostClassifier
+from sklearn.decomposition import PCA,KernelPCA
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 
 
 df=pd.read_csv('spaceship-titanic/train.csv')
@@ -22,7 +24,7 @@ df=df.drop(columns=['Transported'])
 df=df.drop(columns=["PassengerId"])
 
 
-#Feature 2
+#Feature 2   OH
 si2=SimpleImputer(missing_values=3,strategy='most_frequent')
 le2=LabelEncoder()
 df['HomePlanet']=le2.fit_transform(df['HomePlanet'])
@@ -39,7 +41,7 @@ df['CryoSleep']=df['CryoSleep'].astype(int)
 
 
 
-#Feature 5
+#Feature 5 OH
 si5=SimpleImputer(missing_values=3,strategy='most_frequent')
 le5=LabelEncoder()
 df['Destination']=le5.fit_transform(df['Destination'])
@@ -101,7 +103,7 @@ df["LName"]=si13_2.fit_transform(df["LName"].values.reshape(-1,1))
 
 
 
-#Feature 4
+#Feature 4  OH
 le4_1=LabelEncoder()
 le4_3=LabelEncoder()
 data=[]
@@ -154,28 +156,64 @@ X=df.values
 
 
 #Model
+pca=PCA(n_components=15)
+# lda=LinearDiscriminantAnalysis(n_components=1)
+kpca=KernelPCA(n_components=15,kernel='rbf')
+
+X=pca.fit_transform(X)
+
 ss=StandardScaler()
-X_std=np.copy(X)
-X_std=ss.fit_transform(X_std)
+
+X_std=ss.fit_transform(X)
+
+X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=0.2,stratify=y)
 
 
+X_train_std=np.copy(X_train)
+X_train_std=ss.fit_transform(X_train_std)
+X_test_std=np.copy(X_test)
+X_test_std=ss.fit_transform(X_test_std)
 
-# lr=LogisticRegression(C=0.01,max_iter=10000,penalty='l2')
-# lr.fit(X,y)
-# print(lr.score(X,y))
-# lr.fit(X_std,y)
-# print(lr.score(X_std,y))
 
-# ksvm=SVC(kernel='rbf',gamma=0.1,C=1,max_iter=10000)
-# ksvm.fit(X,y)
-# print(ksvm.score(X,y))
-# ksvm.fit(X_std,y)
-# print(ksvm.score(X_std,y))
+lr=LogisticRegression(C=0.1,max_iter=10000,penalty='l2')
+ksvm=SVC(kernel='rbf',gamma=0.1,C=1,max_iter=10000)
+tree=DecisionTreeClassifier(criterion='entropy',max_depth=10)
+bag=BaggingClassifier(estimator=tree,n_estimators=15)
+ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
 
-# tree=DecisionTreeClassifier(criterion='entropy',max_depth=30)
-# tree.fit(X,y)
-# print(tree.score(X,y))
-# tree.fit(X_std,y)
-# print(tree.score(X_std,y))
+model=ada
+
+# print(ada.get_params())
+#Normal train/test split
+# model.fit(X_train,y_train)
+# print(model.score(X_test,y_test))
+# model.fit(X_train_std,y_train)
+# print(model.score(X_test_std,y_test))
+
+
+# KFold
+# kfold=StratifiedKFold(n_splits=10).split(X_std,y)
+# scores=[]
+# for step,(train,test) in enumerate(kfold):
+#     model.fit(X_std[train],y[train])
+#     score=model.score(X_std[test],y[test])
+#     scores.append(score)
+# scores=np.array(scores)
+# print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {scores.mean()} +- {scores.std()}')
+
+
+#GridSearch
+ensemble_param_grid={'n_estimators':np.linspace(3,100,20).astype(int),'estimator__max_depth':np.linspace(1,50,20).astype(int)}
+
+lr_param_grid={'C':np.linspace(1e-5,100,100)}
+ksvm_param_grid={'C':np.linspace(1e-5,100,10),'gamma':np.linspace(1e-5,100,10)}
+
+gs=GridSearchCV(ada,param_grid=ensemble_param_grid,cv=5,scoring='accuracy',refit=True,n_jobs=4)
+gs.fit(X_std,y)
+print(gs.best_params_)
+print(gs.best_score_)
+
+
+#one hot encoding на неупорядоченные именные признаки
 
 
