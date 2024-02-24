@@ -2,8 +2,10 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 from sklearn.impute import SimpleImputer
-
-
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import StandardScaler
 df=pd.read_csv('spaceship-titanic/train.csv')
 
 y=df['Transported'].map(int).values
@@ -144,5 +146,24 @@ df=df.drop(columns=['Cabin'])
 
 X=df.values
 
-print(X.shape,y.shape)
 
+
+
+#Model
+ss=StandardScaler()
+X_std=np.copy(X)
+X_std=ss.fit_transform(X_std)
+
+
+
+# lr=LogisticRegression(C=0.01,max_iter=10000,penalty='l2')
+# lr.fit(X,y)
+# print(lr.score(X,y))
+# lr.fit(X_std,y)
+# print(lr.score(X_std,y))
+
+# ksvm=SVC(kernel='rbf',gamma=0.1,C=1,max_iter=10000)
+# ksvm.fit(X,y)
+# print(ksvm.score(X,y))
+# ksvm.fit(X_std,y)
+# print(ksvm.score(X_std,y))
