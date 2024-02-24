@@ -96,4 +96,53 @@ df["LName"]=si13_2.fit_transform(df["LName"].values.reshape(-1,1))
 
 
 #Feature 4
-print(df)
+le4_1=LabelEncoder()
+le4_3=LabelEncoder()
+data=[]
+for i in range(len(df['Cabin'].values)):
+    if type(df['Cabin'].values[i])==str:
+        data.append(df['Cabin'].values[i].split('/'))
+    else:
+        data.append([df['Cabin'].values[i],df['Cabin'].values[i],df['Cabin'].values[i]])
+data=np.array(data)
+
+f1=[]
+f2=[]
+f3=[]
+for x in data:
+    f1.append(x[0])
+    f2.append(x[1])
+    f3.append(x[2])
+
+
+f1=np.array(f1)
+df.insert(13,"f1",f1,True)
+df["f1"]=le4_1.fit_transform(df["f1"])
+si4_1=SimpleImputer(missing_values=le4_1.transform(['nan'])[0],strategy='most_frequent')
+df["f1"]=si4_1.fit_transform(df["f1"].values.reshape(-1,1))
+# df['f1']=le4_1.inverse_transform(df['f1'])
+
+
+f2=np.array(f2)
+df.insert(14,"f2",f2,True)
+def map1(x):
+    if x=='nan': return -1
+    else: return int(x)
+df['f2']=df['f2'].map(map1)
+si4_2=SimpleImputer(missing_values=-1,strategy='most_frequent')
+df["f2"]=si4_2.fit_transform(df["f2"].values.reshape(-1,1))
+
+
+f3=np.array(f3)
+df.insert(15,"f3",f3,True)
+df["f3"]=le4_3.fit_transform(df["f3"])
+si4_3=SimpleImputer(missing_values=le4_3.transform(['nan'])[0],strategy='most_frequent')
+df["f3"]=si4_3.fit_transform(df["f3"].values.reshape(-1,1))
+# df['f3']=le4_3.inverse_transform(df['f3'])
+
+df=df.drop(columns=['Cabin'])
+
+X=df.values
+
+print(X.shape,y.shape)
+
