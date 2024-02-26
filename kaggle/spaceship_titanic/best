@@ -1,0 +1,2 @@
+Bag n_est=79 max_depth=8 pca_mle std 80.2%
+ksvm c=2 gamma=0.43
