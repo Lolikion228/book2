@@ -9,6 +9,8 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler,OneHotEncoder,Normalizer,RobustScaler,PolynomialFeatures,PowerTransformer
 from sklearn.model_selection import StratifiedKFold,GridSearchCV,train_test_split,cross_val_score,RandomizedSearchCV
 from sklearn.ensemble import BaggingClassifier,AdaBoostClassifier,RandomForestClassifier,GradientBoostingClassifier
+
+import xgboost as xgb
 from sklearn.decomposition import PCA,KernelPCA
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.compose import ColumnTransformer
@@ -17,7 +19,7 @@ from sklearn.naive_bayes import BernoulliNB
 from sklearn.neighbors import KNeighborsClassifier
 import matplotlib.pyplot as plt
 # from keras import Sequential
-# from tensorflow.keras.layers import Dense
+# from tensorflow.keras.layers import Dense,Dropout
 # import tensorflow.keras.optimizers as opt
 df=pd.read_csv('spaceship-titanic/train.csv')
 df2=pd.read_csv('spaceship-titanic/test.csv')
@@ -32,13 +34,13 @@ def prepare_data(df,verbose=0):
 
     nans0=np.array(df.isnull().astype(int).values.sum(axis=1))
     # df.insert(loc=len(df.columns),column='nan_cnt',value=nans0)
-    # df.insert(loc=len(df.columns),column='nan_norm',value=nans0/sum(nans0))
+    df.insert(loc=len(df.columns),column='nan_norm',value=nans0/sum(nans0))
 
     #feature 1  ok
     p0=df['PassengerId'].values
     p=[int(x.split('_')[0]) for x in p0]
     p1=[int(x.split('_')[1]) for x in p0]
-    df.insert(loc=len(df.columns),column='id2',value=np.array(p1)) #dummy???
+    df.insert(loc=len(df.columns),column='id2',value=np.array(p1))
     # df.insert(loc=len(df.columns),column='id1',value=np.array(p))
 
 
@@ -171,6 +173,9 @@ def prepare_data(df,verbose=0):
 
     si8=SimpleImputer(missing_values=np.nan,strategy='mean')
     columns=['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']
+
+
+
     dummy=(df[columns]==0.0).astype(int)
     for name in columns:
         df.insert(loc=len(df.columns),column='dummy_'+name,value=dummy[name] )
@@ -180,6 +185,9 @@ def prepare_data(df,verbose=0):
 
     for column in columns:
         df[column] = si8.fit_transform(df[column].values.reshape(-1, 1))
+
+
+
     sub=df[columns].values
     sub_sum=np.sum(sub,axis=1).reshape(-1,1)
 
@@ -317,6 +325,22 @@ def prepare_data(df,verbose=0):
 
     if train:
         df = df.drop(columns=['Transported'])
+
+
+    # print(df.columns)
+
+
+    columns_sqrt = ['numeric__Home', 'Spended money', 'numeric__Destination',
+                    'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck','Age','id2',
+                    'cabin[2]','Group size','Family size'] #nan_cnt,nan_norm
+    #maybe remove age group/family size id2 cabin2
+
+    df[columns_sqrt] = df[columns_sqrt].apply(np.sqrt)
+    # 0-no use 1-use 2-use sqrt
+    # 0.803983 +- 0.01195 0 0
+    # 0.803292 +- 0.01354 1 0
+    #
+
     X = df.values
 
     if train:
@@ -327,9 +351,26 @@ def prepare_data(df,verbose=0):
 
 
 #Model
+#KNN Imputer for Age
+# RoomService
+# FoodCourt
+# ShoppingMall
+# Spa
+# VRDeck
+# cabin_num
 
-# Family size filter (only big families are important for the model)
-# Only families which present in a test part of the dataset
+#log sqrt Box-Cox Transformation Yeo-Johnson Transformation Power Transformation transforms for high std  ????
+
+# Create Bins for services???
+
+#FoodCourt & RoomService together has really good classification ability
+
+#VRDeck, Spa, RoomService have a good differentiation between classes.
+# We can create a new feature that tells the total expenditure in the above three features.
+
+
+
+
 
 # I add dummy features to just detect if some options have been chosen+
 # I put every single value into its own numeric feature признак= человек выбрал k сервисов+
@@ -348,19 +389,19 @@ X2=prepare_data(df2)
 
 ss=StandardScaler()
 
-# pca=PCA(n_components='mle')
-# kpca=KernelPCA(kernel='rbf',n_components=,gamma=0.004) #0.01 86 79.1
+pca=PCA(n_components='mle')
+# kpca=KernelPCA(kernel='rbf',n_components=30,gamma=0.004) #0.01 86 79.1
 
 X_std=ss.fit_transform(X)
-# X_std=pca.fit_transform(X_std)
+X_std=pca.fit_transform(X_std)
 
-# print(kpca.n_components,X.shape[1])
+# print(pca.n_components_,X.shape[1])
 X_train, X_test, y_train, y_test = train_test_split(X_std,y,test_size=0.2,stratify=y)
 
 
 
 gbc=GradientBoostingClassifier(n_estimators=100,max_depth=3,learning_rate=0.08)
-ksvm=SVC(kernel='rbf',gamma=0.0015,C=200) #0.0015 200 80.00764%
+ksvm=SVC(kernel='rbf',gamma=0.0015,C=100) #0.0015 200 80.00764%
 rf=RandomForestClassifier(n_estimators=100,criterion='gini',max_depth=10)
 
 
@@ -369,20 +410,22 @@ rf=RandomForestClassifier(n_estimators=100,criterion='gini',max_depth=10)
 # knn=KNeighborsClassifier(n_neighbors=3)
 # bag=BaggingClassifier(estimator=tree,n_estimators=31)
 # ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
-
+# xgb_params={'colsample_bytree': 0.8498791800104656, 'learning_rate': 0.020233442882782587, 'max_depth': 4, 'n_estimators': 469, 'subsample': 0.746529796772373}
+# xgb_params={ 'learning_rate': 0.10233442882782587, 'max_depth': 4, 'n_estimators': 100}
+# xgb1=xgb.XGBClassifier(**xgb_params)
 
 # models=[gbc,ksvm,rf]
 model=ksvm
 
-#
-# model.fit(X_train,y_train)
-# print(model.score(X_test,y_test))
-# model.fit(X_std,y)
-# print(model.score(X_std,y))
-# pred=model.predict(ss.fit_transform(X2))#or fit transform????
-# df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
-# df2['Transported']=pred.astype(bool)
-# df2.to_csv('pred.csv',index=False)
+
+model.fit(X_train,y_train)
+print(model.score(X_test,y_test))
+model.fit(X_std,y)
+print(model.score(X_std,y))
+pred=model.predict(ss.fit_transform(pca.transform(X2)))#or fit transform????
+df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
+df2['Transported']=pred.astype(bool)
+df2.to_csv('pred.csv',index=False)
 
 # KFold
 # model=pipe2
@@ -392,11 +435,11 @@ model=ksvm
 
 scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
 print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
-
-#GridSearch
-ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
-                     'max_depth':np.linspace(2,10,8).astype(int),
-                     'learning_rate':np.linspace(0.05,0.5,40)}
+#
+# #GridSearch
+# ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
+#                      'max_depth':np.linspace(2,10,8).astype(int),
+#                      'learning_rate':np.linspace(0.05,0.5,40)}
 
 # lr_param_grid={'C':np.linspace(1e-5,100,2000)}
 # ksvm_param_grid={'C':np.linspace(1e-5,100,10),'gamma':np.linspace(1e-5,100,10)}
@@ -434,18 +477,21 @@ ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
 # kFold = StratifiedKFold(n_splits=3,shuffle=True)
 #
 # scores=[]
-#
+# import tensorflow
+# lrelu = lambda x: tensorflow.keras.activations.relu(x, alpha=0.1)
 # for train, test in kFold.split(X_std, y):
 #     model = Sequential()
-#     model.add(Dense(20, input_shape=(X_std.shape[1],), activation='relu'))
-#     model.add(Dense(15, activation='relu'))
-#     model.add(Dense(10, activation='relu'))
-#     model.add(Dense(5, activation='relu'))
-#     model.add(Dense(1, activation='sigmoid'))
-#     # optmzr = opt.Adam(learning_rate=0.003)
-#     optmzr = opt.SGD(learning_rate=0.003,momentum=0.9)
+#     model.add(Dense(64, input_shape=(X_std.shape[1],), activation=lrelu,kernel_initializer='he_uniform'))
+#     model.add(Dropout(0.1))
+#     model.add(Dense(20, activation=lrelu,kernel_initializer='he_uniform'))
+#     model.add(Dropout(0.1))
+#     model.add(Dense(10, activation=lrelu,kernel_initializer='he_uniform'))
+#     model.add(Dropout(0.1))
+#     model.add(Dense(1, activation='sigmoid',kernel_initializer='he_uniform'))
+#     optmzr = opt.Adam(learning_rate=0.003)
+#     # optmzr = opt.SGD(learning_rate=0.005,momentum=0.9,nesterov=True)
 #     model.compile(loss='binary_crossentropy', optimizer=optmzr, metrics=['accuracy'])
-#     model.fit(X_std[train], y[train], epochs=20, batch_size=32, verbose=1,use_multiprocessing=True)
+#     model.fit(X_std[train], y[train], epochs=40, batch_size=16, verbose=1,use_multiprocessing=True)
 #
 #     res=model.evaluate(X_std[test], y[test])
 #     scores.append(res)
