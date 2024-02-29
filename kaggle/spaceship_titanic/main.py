@@ -352,6 +352,9 @@ def prepare_data(df,verbose=0):
         df = df.drop(columns=['Transported'])
 
 
+
+
+
     # print(df.columns)
 
 
@@ -480,6 +483,7 @@ gbc=GradientBoostingClassifier(n_estimators=400,max_depth=3,learning_rate=0.1,su
 ksvm=SVC(kernel='rbf',gamma=0.0015,C=200) #0.0015 200 80.00764%
 # rf=RandomForestClassifier(n_estimators=200,criterion='gini',max_depth=5)
 
+print(gbc.feature_importances_)
 
 lr=LogisticRegression(C=20,max_iter=1000,penalty='l2')
 # tree=DecisionTreeClassifier(criterion='gini',max_depth=6)
@@ -487,11 +491,14 @@ lr=LogisticRegression(C=20,max_iter=1000,penalty='l2')
 # bag=BaggingClassifier(estimator=tree,n_estimators=31)
 # ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
 # xgb_params={'colsample_bytree': 0.8498791800104656, 'learning_rate': 0.020233442882782587, 'max_depth': 4, 'n_estimators': 469, 'subsample': 0.746529796772373}
-xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 400,'colsample_bytree': 0.8,'subsample': 0.7}
+# xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 400,'colsample_bytree': 0.8,'subsample': 0.7}
+xgb_params={'colsample_bytree': 0.325, 'learning_rate': 0.23, 'max_depth': 5, 'n_estimators': 167, 'subsample': 1.0}
 xgb1=xgb.XGBClassifier(**xgb_params)
 #
 # models=[gbc,ksvm]
 model=xgb1
+
+
 
 
 # model.fit(X_train,y_train)
@@ -500,7 +507,7 @@ model=xgb1
 # print(model.score(X_std,y))
 # pred=model.predict(ss.fit_transform(X2))#or fit transform????
 # print(pred.sum())
-# pred=np.zeros(len(pred))
+
 # df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
 # df2['Transported']=pred.astype(bool)
 # df2.to_csv('pred_xgb2.csv',index=False)
@@ -511,7 +518,7 @@ model=xgb1
 #     scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
 #     print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
-# scores=cross_val_score(model,X_std,y,cv=10,scoring='accuracy',n_jobs=-1)
+# scores=cross_val_score(model,X_std,y,cv=15,scoring='accuracy',n_jobs=-1)
 # print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
 
@@ -522,10 +529,12 @@ model=xgb1
 # ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
 #                      'max_depth':np.linspace(2,10,8).astype(int),
 #                      'learning_rate':np.linspace(0.05,0.5,40)}
-xgb_param_grid={ 'learning_rate': np.linspace(0.01,1,10), 'max_depth': [1,2,3,4,5,6],
-                 'n_estimators': np.linspace(1,500,10).astype(int),
-                 'colsample_bytree': np.linspace(0.1,1,10),
-                 'subsample': np.linspace(0.1,1,10)}
+
+# xgb_params={'colsample_bytree': 0.325, 'learning_rate': 0.23, 'max_depth': 5, 'n_estimators': 167, 'subsample': 1.0}
+xgb_param_grid={ 'learning_rate': np.linspace(0.01,0.5,8), 'max_depth': [3,4,5,6,7],
+                 'n_estimators': np.linspace(100,500,10).astype(int),
+                 'colsample_bytree': np.linspace(0.1,1,8),
+                 'subsample': np.linspace(0.5,1,8)}
 # lr_param_grid={'C':np.linspace(1e-5,100,2000)}
 # ksvm_param_grid={'C':np.linspace(1e-5,100,10),'gamma':np.linspace(1e-5,100,10)}
 # ksvm_param_grid={'C':[5,10,15,20],'gamma':np.linspace(0.001,0.01,30)}
@@ -536,20 +545,14 @@ xgb_param_grid={ 'learning_rate': np.linspace(0.01,1,10), 'max_depth': [1,2,3,4,
 #                    'svc__gamma':np.linspace(0.00007,0.00087,100)}
 
 gs=GridSearchCV(model,param_grid=xgb_param_grid,cv=10,scoring='accuracy',n_jobs=-1,verbose=1)
-# # rs=RandomizedSearchCV(model,param_distributions=ksvm_param_grid,cv=5,scoring='accuracy',n_jobs=-1,verbose=3,n_iter=30)
+# rs=RandomizedSearchCV(model,param_distributions=xgb_param_grid,cv=10,scoring='accuracy',n_jobs=-1,verbose=1,n_iter=50000)
 gs.fit(X_std,y)
 print(gs.best_params_)
 print(gs.best_score_)
-print(gs.cv_results_)
+# print(gs.cv_results_)
 
-
-# Получение результатов кросс-валидации
 results = gs.cv_results_
-
-# Сортировка результатов по значению метрики качества
 sorted_results_idx = np.argsort(results['mean_test_score'])[::-1]
-
-# Вывод первых 15 лучших классификаторов
 for i in range(50):
     idx = sorted_results_idx[i]
     print(f"Лучшие параметры для классификатора {i+1}:")
@@ -605,7 +608,150 @@ for i in range(50):
 
 
 
+"""
+{'colsample_bytree': 0.325, 'learning_rate': 0.23, 'max_depth': 5, 'n_estimators': 167, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8119247913442589
+Лучшие параметры для классификатора 2:
+{'colsample_bytree': 0.775, 'learning_rate': 0.23, 'max_depth': 4, 'n_estimators': 56, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8115804928375858
+Лучшие параметры для классификатора 3:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 167, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8115800960279355
+Лучшие параметры для классификатора 4:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 444, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8112344748224277
+Лучшие параметры для классификатора 5:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 500, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8110047220348399
+Лучшие параметры для классификатора 6:
+{'colsample_bytree': 0.775, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8107760274063199
+Лучшие параметры для классификатора 7:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 222, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8107756305966696
+Лучшие параметры для классификатора 8:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 222, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8105461423488487
+Лучшие параметры для классификатора 9:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 389, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8104298771212782
+Лучшие параметры для классификатора 10:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 278, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8104298771212782
+Лучшие параметры для классификатора 11:
+{'colsample_bytree': 0.775, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 167, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8104298771212782
+Лучшие параметры для классификатора 12:
+{'colsample_bytree': 0.775, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8104278930730263
+Лучшие параметры для классификатора 13:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 3, 'n_estimators': 333, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8103137441635914
+Лучшие параметры для классификатора 14:
+{'colsample_bytree': 1.0, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 444, 'subsample': 0.325}
+Средняя оценка на кросс-валидации: 0.8103125537346401
+Лучшие параметры для классификатора 15:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 278, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.810200256603574
+Лучшие параметры для классификатора 16:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 222, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8100851818049547
+Лучшие параметры для классификатора 17:
+{'colsample_bytree': 0.325, 'learning_rate': 0.23, 'max_depth': 5, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8100845204555375
+Лучшие параметры для классификатора 18:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 56, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8100837268362365
 
+
+
+
+Лучшие параметры для классификатора 19:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 167, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8099698424665688
+Лучшие параметры для классификатора 20:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 3, 'n_estimators': 278, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8099685197677342
+Лучшие параметры для классификатора 21:
+{'colsample_bytree': 0.775, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 444, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8099683874978506
+Лучшие параметры для классификатора 22:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 167, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8098551644776002
+Лучшие параметры для классификатора 23:
+{'colsample_bytree': 1.0, 'learning_rate': 0.23, 'max_depth': 4, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8098545031281826
+Лучшие параметры для классификатора 24:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 278, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8098541063185325
+Лучшие параметры для классификатора 25:
+{'colsample_bytree': 1.0, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.325}
+Средняя оценка на кросс-валидации: 0.8098523868100473
+Лучшие параметры для классификатора 26:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 167, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8097410155681652
+Лучшие параметры для классификатора 27:
+{'colsample_bytree': 0.775, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 222, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8097408832982819
+Лучшие параметры для классификатора 28:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 222, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8096254116900123
+Лучшие параметры для классификатора 29:
+{'colsample_bytree': 1.0, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 389, 'subsample': 0.325}
+Средняя оценка на кросс-валидации: 0.8096218404031585
+Лучшие параметры для классификатора 30:
+{'colsample_bytree': 0.325, 'learning_rate': 0.23, 'max_depth': 5, 'n_estimators': 222, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8095090141925585
+Лучшие параметры для классификатора 31:
+{'colsample_bytree': 0.775, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8095078237636073
+Лучшие параметры для классификатора 32:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 111, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8093955266325411
+Лучшие параметры для классификатора 33:
+{'colsample_bytree': 0.775, 'learning_rate': 0.34, 'max_depth': 4, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8093953943626575
+Лучшие параметры для классификатора 34:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 111, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8092793936748542
+Лучшие параметры для классификатора 35:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 333, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8092792614049706
+Лучшие параметры для классификатора 36:
+{'colsample_bytree': 1.0, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8092776741663691
+Лучшие параметры для классификатора 37:
+{'colsample_bytree': 0.325, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 278, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8091660383847202
+Лучшие параметры для классификатора 38:
+{'colsample_bytree': 0.55, 'learning_rate': 0.23, 'max_depth': 4, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8091655093051863
+Лучшие параметры для классификатора 39:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 111, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8091652447654194
+Лучшие параметры для классификатора 40:
+{'colsample_bytree': 0.775, 'learning_rate': 0.12, 'max_depth': 4, 'n_estimators': 278, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8091652447654193
+Лучшие параметры для классификатора 41:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 56, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8091651124955359
+Лучшие параметры для классификатора 42:
+{'colsample_bytree': 0.775, 'learning_rate': 0.34, 'max_depth': 4, 'n_estimators': 56, 'subsample': 1.0}
+Средняя оценка на кросс-валидации: 0.8091631284472838
+Лучшие параметры для классификатора 43:
+{'colsample_bytree': 0.775, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.325}
+Средняя оценка на кросс-валидации: 0.8091619380183326
+Лучшие параметры для классификатора 44:
+{'colsample_bytree': 1.0, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 111, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8090497731571498
+Лучшие параметры для классификатора 45:
+{'colsample_bytree': 1.0, 'learning_rate': 0.01, 'max_depth': 5, 'n_estimators': 500, 'subsample': 0.775}
+Средняя оценка на кросс-валидации: 0.8090485827281986
+Лучшие параметры для классификатора 46:
+{'colsample_bytree': 0.55, 'learning_rate': 0.12, 'max_depth': 5, 'n_estimators': 56, 'subsample': 0.55}
+Средняя оценка на кросс-валидации: 0.8090476568390143
+
+"""
 
 
 
