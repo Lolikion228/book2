@@ -2,9 +2,11 @@ import pandas as pd
 import numpy as np
 import sklearn.ensemble
 from sklearn.preprocessing import LabelEncoder
-from sklearn.impute import SimpleImputer
+from sklearn.impute import SimpleImputer,KNNImputer
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from sklearn.experimental import enable_iterative_imputer
+from sklearn.impute import IterativeImputer
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import StandardScaler,OneHotEncoder,Normalizer,RobustScaler,PolynomialFeatures,PowerTransformer
 from sklearn.model_selection import StratifiedKFold,GridSearchCV,train_test_split,cross_val_score,RandomizedSearchCV
@@ -34,14 +36,11 @@ def prepare_data(df,verbose=0):
 
     nans0=np.array(df.isnull().astype(int).values.sum(axis=1))
     # df.insert(loc=len(df.columns),column='nan_cnt',value=nans0)
-    df.insert(loc=len(df.columns),column='nan_norm',value=nans0/sum(nans0))
+    # df.insert(loc=len(df.columns),column='nan_norm',value=nans0/sum(nans0))
 
     #feature 1  ok
     p0=df['PassengerId'].values
     p=[int(x.split('_')[0]) for x in p0]
-    p1=[int(x.split('_')[1]) for x in p0]
-    df.insert(loc=len(df.columns),column='id2',value=np.array(p1))
-    # df.insert(loc=len(df.columns),column='id1',value=np.array(p))
 
 
     df['PassengerId']=p
@@ -51,6 +50,7 @@ def prepare_data(df,verbose=0):
     df['PassengerId']=p
     df=df.rename(columns={"PassengerId":"Group size"})
 
+    #
     if verbose:
         for i in set(df['Group size']):
             plt.bar(i,y[df['Group size']==i].sum())
@@ -68,8 +68,9 @@ def prepare_data(df,verbose=0):
     df['HomePlanet']=le2.inverse_transform(df['HomePlanet'])
     z=pd.get_dummies(df['HomePlanet'],dtype=int)
 
-    # distances = {"Earth": 0, "Europa": 628.3, "Mars":225}
-    distances = {"Earth": 0, "Europa": 6.641136e-11, "Mars":2.3783e-11}
+    distances = {"Earth": 0, "Europa": 628.3, "Mars":225}
+
+    # distances = {"Earth": 0, "Europa": 6.641136e-11, "Mars":2.3783e-11}
     for _name in distances.keys():
         df[f"numeric__Home"] = df['HomePlanet'].apply(lambda x: distances.get(x, 0))
 
@@ -88,6 +89,7 @@ def prepare_data(df,verbose=0):
 
 
     #Feature 3 ok
+    # si3=KNNImputer()
     si3=SimpleImputer(missing_values=np.nan,strategy='most_frequent')
     df['CryoSleep']=df['CryoSleep'].map(int,na_action='ignore')
     df['CryoSleep']=si3.fit_transform(df['CryoSleep'].values.reshape(-1,1))
@@ -132,24 +134,26 @@ def prepare_data(df,verbose=0):
 
 
     #Feature 6 ok
+    # si6=KNNImputer()
     si6=SimpleImputer(missing_values=np.nan,strategy='median')
     df['Age']=si6.fit_transform(df['Age'].values.reshape(-1,1))
+    df.insert(loc=len(df.columns),column='Age group',value=np.zeros(df.values.shape[0]))
+    ranges = [[0,13], [14,17], [18,34], [35,60], [61, 79]]
+    for i in range(0, len(ranges)):
+        df.loc[(ranges[i][0] <= df['Age']) & (df['Age'] <= ranges[i][1]), 'Age group'] = i + 1
+    # df['Age']=df['Age group'].values
+    # df=df.drop(columns=['Age group'])
 
-    # df.insert(loc=len(df.columns),column='Age group',value=np.zeros(df.values.shape[0]))
-    # ranges = [[0, 14], [15, 20], [21, 30], [31, 40], [41, 50], [51, 60], [61, 70], [71, 79]]
-    # for i in range(0, len(ranges)):
-    #     df.loc[(ranges[i][0] <= df['Age']) & (df['Age'] <= ranges[i][1]), 'Age group'] = i + 1
-    #
-    # if verbose:
+    if verbose:
     #     # age_min=0.0; age_max=79.0
-    #     for i in range(0,len(ranges)):
-    #         plt.bar(f'{ranges[i][0]}:{ranges[i][1]}', y[df['Age group'] == i+1].sum())
-    #     plt.ylabel('Transported')
-    #     plt.xlabel('Age group')
-    #     plt.show()
-    #     plt.close()
+        for i in range(0,len(ranges)):
+            plt.bar(f'{ranges[i][0]}:{ranges[i][1]}', y[df['Age'] == i+1].sum())
+        plt.ylabel('Transported')
+        plt.xlabel('Age group')
+        plt.show()
+        plt.close()
     # df = df.drop(columns=['Age'])
-
+    #
 
 
 
@@ -170,8 +174,8 @@ def prepare_data(df,verbose=0):
 
 
     #Feature 8-12 ok????
-
-    si8=SimpleImputer(missing_values=np.nan,strategy='mean')
+    si8=KNNImputer()
+    # si8=SimpleImputer(missing_values=np.nan,strategy='mean')
     columns=['RoomService','FoodCourt','ShoppingMall','Spa','VRDeck']
 
 
@@ -181,6 +185,12 @@ def prepare_data(df,verbose=0):
         df.insert(loc=len(df.columns),column='dummy_'+name,value=dummy[name] )
 
     df.insert(loc=len(df.columns), column='service_cnt', value=dummy.values.sum(axis=1))
+
+    df['service_cnt']=df['service_cnt'].apply(lambda x: int(x in [5]) )
+
+    # for num in set(df['service_cnt']):
+    #     plt.bar(num,y[df['service_cnt']==num].sum())
+    # plt.show()
 
 
     for column in columns:
@@ -192,6 +202,7 @@ def prepare_data(df,verbose=0):
     sub_sum=np.sum(sub,axis=1).reshape(-1,1)
 
     df.insert(loc=len(df.columns),column='Spended money',value=sub_sum)
+
 
     #min=0.0 max=35987.0
 
@@ -236,6 +247,9 @@ def prepare_data(df,verbose=0):
     si13 = SimpleImputer(missing_values=218, strategy='constant',fill_value=3)
     df['Name'] = np.array(si13.fit_transform(df['Name'].values.reshape(-1, 1))).reshape(-1)
     df=df.rename(columns={'Name':'Family size'})
+
+    df['Family size']=df['Family size'].apply(lambda x: 6<=x<=14  )
+
 
     if verbose:
         for i in set(df['Family size']):
@@ -304,7 +318,9 @@ def prepare_data(df,verbose=0):
 
 
 
-    ranges=np.linspace(0,1894,25).astype(int)
+    # ranges=np.linspace(0,1894,5).astype(int)
+
+    ranges=[   0  ,315, 631   ,1162,  1894]
     df.insert(loc=len(df.columns),column='cabin_num_range',value=np.zeros(df.values.shape[0]))
     for i in range(1, len(ranges)):
         df.loc[(ranges[i - 1] <= df['cabin[2]']) & (df['cabin[2]'] <= ranges[i]), 'cabin_num_range'] = i
@@ -320,8 +336,8 @@ def prepare_data(df,verbose=0):
         plt.tight_layout()
         plt.show()
         plt.close()
-    # df=df.drop(columns=['cabin[2]'])
-    df=df.drop(columns=['cabin_num_range'])
+        df=df.drop(columns=['cabin[2]'])
+    # df=df.drop(columns=['cabin_num_range'])
 
     if train:
         df = df.drop(columns=['Transported'])
@@ -330,18 +346,70 @@ def prepare_data(df,verbose=0):
     # print(df.columns)
 
 
-    columns_sqrt = ['numeric__Home', 'Spended money', 'numeric__Destination',
-                    'RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck','Age','id2',
-                    'cabin[2]','Group size','Family size'] #nan_cnt,nan_norm
-    #maybe remove age group/family size id2 cabin2
+    columns_sqrt = [ 'Spended money','RoomService', 'FoodCourt', 'ShoppingMall', 'Spa', 'VRDeck',
+                     'numeric__Destination'
+                    ]
+
 
     df[columns_sqrt] = df[columns_sqrt].apply(np.sqrt)
-    # 0-no use 1-use 2-use sqrt
-    # 0.803983 +- 0.01195 0 0
-    # 0.803292 +- 0.01354 1 0
-    #
+    df['Group size'] = df['Group size'].apply(np.log)
+
+
+
+    df=df[['cabin_num_range','cabin[3]','Spended money','service_cnt','dummy_VRDeck','dummy_ShoppingMall',
+           'dummy_FoodCourt','dummy_RoomService','numeric__Destination','TRAPPIST-1e',
+           '55 Cancri e', 'PSO J318.5-22','Mars','Europa','Earth','numeric__Home','Age',
+           'VRDeck','Spa','ShoppingMall','FoodCourt','RoomService','VIP','CryoSleep',
+           'cabin[0]=0', 'cabin[0]=1', 'cabin[0]=2', 'cabin[0]=3', 'cabin[0]=4',
+            'cabin[0]=5', 'cabin[0]=6', 'cabin[0]=7']]
+
 
     X = df.values
+
+    wtf=['Family size','Group size']
+
+
+    #count of nans???
+    #age or age group????
+    #drop pco and/or mars??
+    #remove service_cnt????(bad at gbc) (good at ksvm)
+    #in service_cnt change the list????? only 5??? or remove mapping???
+    # remove some cabin[0]????
+    #change ranges for age-cabin???
+    #change range to initial vals???
+
+
+    # passenger id log_group_size 55.8
+    #cryo sleep 71.828
+    #Age 54.25
+     #vip normalno 50+-
+    # RoomService sqrt 66.6
+   # FoodCourt 62.1
+    #ShoppingMall   62.98
+   # Spa sqrt 66.6
+    # VrDeck 65.8
+    #family size 51.57
+    #numeric__Home 58.357
+    # from Earth 58.3
+    # from europa 57.4
+    # from mars 50.2  drop it?
+    # to cancri e 54.19
+    # to pso 49 drop it?
+    # to trappist 54
+    # numeric_destination 53.8
+    # dummy_RoomService 66
+    # dummy_FoodCourt 61
+    # dummy_ShoppingMall 62
+    # dummy_Spa 66.6
+    # dummy_VRDeck 65.8
+    #service_cnt 72.8
+    #Spended money sqrt 73.4
+    #cabin[3] 55
+    #cabin[0]=.....  56.4
+    #cabin_num_range 56.4
+
+
+
 
     if train:
         return X,y
@@ -350,18 +418,17 @@ def prepare_data(df,verbose=0):
 
 
 
+
+
+
 #Model
-#KNN Imputer for Age
-# RoomService
-# FoodCourt
-# ShoppingMall
-# Spa
-# VRDeck
-# cabin_num
 
-#log sqrt Box-Cox Transformation Yeo-Johnson Transformation Power Transformation transforms for high std  ????
+#try to classificate by just one single feature to get optimal data_preapration
 
-# Create Bins for services???
+
+
+
+# Create Bins for spended moneys???
 
 #FoodCourt & RoomService together has really good classification ability
 
@@ -381,7 +448,7 @@ def prepare_data(df,verbose=0):
 
 
 X,y=prepare_data(df,verbose=0) # 1, 2 or 3
-X2=prepare_data(df2)
+# X2=prepare_data(df2)
 
 
 
@@ -393,16 +460,15 @@ pca=PCA(n_components='mle')
 # kpca=KernelPCA(kernel='rbf',n_components=30,gamma=0.004) #0.01 86 79.1
 
 X_std=ss.fit_transform(X)
-X_std=pca.fit_transform(X_std)
 
 # print(pca.n_components_,X.shape[1])
 X_train, X_test, y_train, y_test = train_test_split(X_std,y,test_size=0.2,stratify=y)
 
 
 
-gbc=GradientBoostingClassifier(n_estimators=100,max_depth=3,learning_rate=0.08)
-ksvm=SVC(kernel='rbf',gamma=0.0015,C=100) #0.0015 200 80.00764%
-rf=RandomForestClassifier(n_estimators=100,criterion='gini',max_depth=10)
+gbc=GradientBoostingClassifier(n_estimators=100,max_depth=3,learning_rate=0.08, subsample=0.6)
+ksvm=SVC(kernel='rbf',gamma=0.0045,C=200) #0.0015 200 80.00764%
+rf=RandomForestClassifier(n_estimators=200,criterion='gini',max_depth=5)
 
 
 # lr=LogisticRegression(C=20,max_iter=100000,penalty='l2')
@@ -411,31 +477,35 @@ rf=RandomForestClassifier(n_estimators=100,criterion='gini',max_depth=10)
 # bag=BaggingClassifier(estimator=tree,n_estimators=31)
 # ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
 # xgb_params={'colsample_bytree': 0.8498791800104656, 'learning_rate': 0.020233442882782587, 'max_depth': 4, 'n_estimators': 469, 'subsample': 0.746529796772373}
-# xgb_params={ 'learning_rate': 0.10233442882782587, 'max_depth': 4, 'n_estimators': 100}
+# xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 200,'colsample_bytree': 0.8,'subsample': 0.7}
 # xgb1=xgb.XGBClassifier(**xgb_params)
+#
+models=[gbc,ksvm]
+# model=gbc
 
-# models=[gbc,ksvm,rf]
-model=ksvm
-
-
-model.fit(X_train,y_train)
-print(model.score(X_test,y_test))
-model.fit(X_std,y)
-print(model.score(X_std,y))
-pred=model.predict(ss.fit_transform(pca.transform(X2)))#or fit transform????
-df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
-df2['Transported']=pred.astype(bool)
-df2.to_csv('pred.csv',index=False)
+#
+# model.fit(X_train,y_train)
+# print(model.score(X_test,y_test))
+# model.fit(X_std,y)
+# print(model.score(X_std,y))
+# pred=model.predict(ss.fit_transform(X2))#or fit transform????
+# df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
+# df2['Transported']=pred.astype(bool)
+# df2.to_csv('pred.csv',index=False)
 
 # KFold
 # model=pipe2
-# for model in models:
-#     scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
-#     print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
+for model in models:
+    scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
+    print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
-scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
-print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
-#
+# scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
+# print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
+
+
+# print(np.argsort(model.feature_importances_))
+
+
 # #GridSearch
 # ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
 #                      'max_depth':np.linspace(2,10,8).astype(int),
@@ -488,10 +558,10 @@ print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.m
 #     model.add(Dense(10, activation=lrelu,kernel_initializer='he_uniform'))
 #     model.add(Dropout(0.1))
 #     model.add(Dense(1, activation='sigmoid',kernel_initializer='he_uniform'))
-#     optmzr = opt.Adam(learning_rate=0.003)
-#     # optmzr = opt.SGD(learning_rate=0.005,momentum=0.9,nesterov=True)
+#     # optmzr = opt.Adam(learning_rate=0.003)
+#     optmzr = opt.SGD(learning_rate=0.005,momentum=0.9,nesterov=True)
 #     model.compile(loss='binary_crossentropy', optimizer=optmzr, metrics=['accuracy'])
-#     model.fit(X_std[train], y[train], epochs=40, batch_size=16, verbose=1,use_multiprocessing=True)
+#     model.fit(X_std[train], y[train], epochs=40, batch_size=32, verbose=1,use_multiprocessing=True)
 #
 #     res=model.evaluate(X_std[test], y[test])
 #     scores.append(res)
@@ -500,9 +570,22 @@ print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.m
 # scores=np.array(scores)
 # print(f' [loss,accuracy] {scores.mean(axis=0)} +- {scores.std(axis=0)}')
 
-
-
-
+# model = Sequential()
+# model.add(Dense(64, input_shape=(X_std.shape[1],), activation=lrelu, kernel_initializer='he_uniform'))
+# model.add(Dropout(0.1))
+# model.add(Dense(20, activation=lrelu, kernel_initializer='he_uniform'))
+# model.add(Dropout(0.1))
+# model.add(Dense(10, activation=lrelu, kernel_initializer='he_uniform'))
+# model.add(Dropout(0.1))
+# model.add(Dense(1, activation='sigmoid', kernel_initializer='he_uniform'))
+# # optmzr = opt.Adam(learning_rate=0.003)
+# optmzr = opt.SGD(learning_rate=0.005, momentum=0.9, nesterov=True)
+# model.compile(loss='binary_crossentropy', optimizer=optmzr, metrics=['accuracy'])
+# model.fit(X_std, y, epochs=50, batch_size=32, verbose=1, use_multiprocessing=True)
+# pred=model.predict(ss.fit_transform(X2))#or fit transform????
+# df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
+# df2['Transported']=pred.astype(bool)
+# df2.to_csv('pred.csv',index=False)
 
 
 
