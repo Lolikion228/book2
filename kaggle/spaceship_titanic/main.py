@@ -496,14 +496,14 @@ model=xgb1
 
 # model.fit(X_train,y_train)
 # print(model.score(X_test,y_test))
-model.fit(X_std,y)
-print(model.score(X_std,y))
-pred=model.predict(ss.fit_transform(X2))#or fit transform????
-print(pred.sum())
+# model.fit(X_std,y)
+# print(model.score(X_std,y))
+# pred=model.predict(ss.fit_transform(X2))#or fit transform????
+# print(pred.sum())
 # pred=np.zeros(len(pred))
-df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
-df2['Transported']=pred.astype(bool)
-df2.to_csv('pred_xgb2.csv',index=False)
+# df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
+# df2['Transported']=pred.astype(bool)
+# df2.to_csv('pred_xgb2.csv',index=False)
 
 # KFold
 # model=pipe2
@@ -511,8 +511,8 @@ df2.to_csv('pred_xgb2.csv',index=False)
 #     scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
 #     print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
-scores=cross_val_score(model,X_std,y,cv=10,scoring='accuracy',n_jobs=-1)
-print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
+# scores=cross_val_score(model,X_std,y,cv=10,scoring='accuracy',n_jobs=-1)
+# print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
 
 # print(np.argsort(model.feature_importances_))
@@ -522,7 +522,10 @@ print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.m
 # ensemble_param_grid={'n_estimators':np.linspace(50,250,100).astype(int),
 #                      'max_depth':np.linspace(2,10,8).astype(int),
 #                      'learning_rate':np.linspace(0.05,0.5,40)}
-
+xgb_param_grid={ 'learning_rate': np.linspace(0.01,1,10), 'max_depth': [1,2,3,4,5,6],
+                 'n_estimators': np.linspace(1,500,10).astype(int),
+                 'colsample_bytree': np.linspace(0.1,1,10),
+                 'subsample': np.linspace(0.1,1,10)}
 # lr_param_grid={'C':np.linspace(1e-5,100,2000)}
 # ksvm_param_grid={'C':np.linspace(1e-5,100,10),'gamma':np.linspace(1e-5,100,10)}
 # ksvm_param_grid={'C':[5,10,15,20],'gamma':np.linspace(0.001,0.01,30)}
@@ -531,33 +534,33 @@ print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.m
 # pipe2k_param_grid={'svc__C':np.linspace(200,300,100),
 #                     # 'pca__n_components':[25],
 #                    'svc__gamma':np.linspace(0.00007,0.00087,100)}
-# #
-# gs=GridSearchCV(model,param_grid=ensemble_param_grid,cv=5,scoring='accuracy',n_jobs=-1,verbose=1)
+
+gs=GridSearchCV(model,param_grid=xgb_param_grid,cv=10,scoring='accuracy',n_jobs=-1,verbose=1)
 # # rs=RandomizedSearchCV(model,param_distributions=ksvm_param_grid,cv=5,scoring='accuracy',n_jobs=-1,verbose=3,n_iter=30)
-# gs.fit(X_std,y)
-# print(gs.best_params_)
-# print(gs.best_score_)
-# print(gs.cv_results_)
+gs.fit(X_std,y)
+print(gs.best_params_)
+print(gs.best_score_)
+print(gs.cv_results_)
 
 
-# # Получение результатов кросс-валидации
-# results = gs.cv_results_
+# Получение результатов кросс-валидации
+results = gs.cv_results_
+
+# Сортировка результатов по значению метрики качества
+sorted_results_idx = np.argsort(results['mean_test_score'])[::-1]
+
+# Вывод первых 15 лучших классификаторов
+for i in range(50):
+    idx = sorted_results_idx[i]
+    print(f"Лучшие параметры для классификатора {i+1}:")
+    print(results['params'][idx])
+    print(f"Средняя оценка на кросс-валидации: {results['mean_test_score'][idx]}")
+
+
+
 #
-# # Сортировка результатов по значению метрики качества
-# sorted_results_idx = np.argsort(results['mean_test_score'])[::-1]
-#
-# # Вывод первых 15 лучших классификаторов
-# for i in range(50):
-#     idx = sorted_results_idx[i]
-#     print(f"Лучшие параметры для классификатора {i+1}:")
-#     print(results['params'][idx])
-#     print(f"Средняя оценка на кросс-валидации: {results['mean_test_score'][idx]}")
-
-
-
-# #
 # kFold = StratifiedKFold(n_splits=3,shuffle=True)
-#
+
 # scores=[]
 # import tensorflow
 # lrelu = lambda x: tensorflow.keras.activations.relu(x, alpha=0.1)
