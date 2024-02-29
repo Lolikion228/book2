@@ -476,8 +476,8 @@ X_train, X_test, y_train, y_test = train_test_split(X_std,y,test_size=0.2,strati
 
 
 
-gbc=GradientBoostingClassifier(n_estimators=100,max_depth=3,learning_rate=0.08, subsample=0.6)
-ksvm=SVC(kernel='rbf',gamma=0.0045,C=200) #0.0015 200 80.00764%
+gbc=GradientBoostingClassifier(n_estimators=400,max_depth=3,learning_rate=0.1,subsample=0.7)
+ksvm=SVC(kernel='rbf',gamma=0.0015,C=200) #0.0015 200 80.00764%
 # rf=RandomForestClassifier(n_estimators=200,criterion='gini',max_depth=5)
 
 
@@ -487,22 +487,23 @@ lr=LogisticRegression(C=20,max_iter=1000,penalty='l2')
 # bag=BaggingClassifier(estimator=tree,n_estimators=31)
 # ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
 # xgb_params={'colsample_bytree': 0.8498791800104656, 'learning_rate': 0.020233442882782587, 'max_depth': 4, 'n_estimators': 469, 'subsample': 0.746529796772373}
-xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 200,'colsample_bytree': 0.8,'subsample': 0.7}
+xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 400,'colsample_bytree': 0.8,'subsample': 0.7}
 xgb1=xgb.XGBClassifier(**xgb_params)
 #
 # models=[gbc,ksvm]
-model=gbc
+model=xgb1
 
 
-model.fit(X_train,y_train)
-print(model.score(X_test,y_test))
+# model.fit(X_train,y_train)
+# print(model.score(X_test,y_test))
 model.fit(X_std,y)
 print(model.score(X_std,y))
 pred=model.predict(ss.fit_transform(X2))#or fit transform????
-pred=np.zeros(len(pred))
+print(pred.sum())
+# pred=np.zeros(len(pred))
 df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
 df2['Transported']=pred.astype(bool)
-df2.to_csv('pred.csv',index=False)
+df2.to_csv('pred_xgb2.csv',index=False)
 
 # KFold
 # model=pipe2
