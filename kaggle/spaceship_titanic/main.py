@@ -49,8 +49,8 @@ def prepare_data(df,verbose=0):
     p=np.array(p)
     df['PassengerId']=p
     df=df.rename(columns={"PassengerId":"Group size"})
+    df['Group size']=df['Group size'].apply(lambda x: int( x == 1 ))
 
-    #
     if verbose:
         for i in set(df['Group size']):
             plt.bar(i,y[df['Group size']==i].sum())
@@ -248,7 +248,16 @@ def prepare_data(df,verbose=0):
     df['Name'] = np.array(si13.fit_transform(df['Name'].values.reshape(-1, 1))).reshape(-1)
     df=df.rename(columns={'Name':'Family size'})
 
-    df['Family size']=df['Family size'].apply(lambda x: 6<=x<=14  )
+
+    def map1(n):
+        if n==3: return 4000
+        elif n in [4,5]: return 3000
+        elif n==6: return 2000
+        elif n in [2,7] : return 1000
+        elif n in [1,8,9,10,11]: return 500
+        else: return 1
+
+    df['Family size']=df['Family size'].apply(map1)
 
 
     if verbose:
@@ -352,13 +361,13 @@ def prepare_data(df,verbose=0):
 
 
     df[columns_sqrt] = df[columns_sqrt].apply(np.sqrt)
-    df['Group size'] = df['Group size'].apply(np.log)
 
 
 
-    df=df[['cabin_num_range','cabin[3]','Spended money','service_cnt','dummy_VRDeck','dummy_ShoppingMall',
+
+    df=df[['Family size','Group size','cabin_num_range','cabin[3]','Spended money','service_cnt','dummy_VRDeck','dummy_ShoppingMall',
            'dummy_FoodCourt','dummy_RoomService','numeric__Destination','TRAPPIST-1e',
-           '55 Cancri e', 'PSO J318.5-22','Mars','Europa','Earth','numeric__Home','Age',
+           '55 Cancri e', 'Europa','Earth','numeric__Home','Age',
            'VRDeck','Spa','ShoppingMall','FoodCourt','RoomService','VIP','CryoSleep',
            'cabin[0]=0', 'cabin[0]=1', 'cabin[0]=2', 'cabin[0]=3', 'cabin[0]=4',
             'cabin[0]=5', 'cabin[0]=6', 'cabin[0]=7']]
@@ -377,6 +386,7 @@ def prepare_data(df,verbose=0):
     # remove some cabin[0]????
     #change ranges for age-cabin???
     #change range to initial vals???
+    #mapping for family size???
 
 
     # passenger id log_group_size 55.8
@@ -448,7 +458,7 @@ def prepare_data(df,verbose=0):
 
 
 X,y=prepare_data(df,verbose=0) # 1, 2 or 3
-# X2=prepare_data(df2)
+X2=prepare_data(df2)
 
 
 
@@ -468,39 +478,40 @@ X_train, X_test, y_train, y_test = train_test_split(X_std,y,test_size=0.2,strati
 
 gbc=GradientBoostingClassifier(n_estimators=100,max_depth=3,learning_rate=0.08, subsample=0.6)
 ksvm=SVC(kernel='rbf',gamma=0.0045,C=200) #0.0015 200 80.00764%
-rf=RandomForestClassifier(n_estimators=200,criterion='gini',max_depth=5)
+# rf=RandomForestClassifier(n_estimators=200,criterion='gini',max_depth=5)
 
 
-# lr=LogisticRegression(C=20,max_iter=100000,penalty='l2')
+lr=LogisticRegression(C=20,max_iter=1000,penalty='l2')
 # tree=DecisionTreeClassifier(criterion='gini',max_depth=6)
 # knn=KNeighborsClassifier(n_neighbors=3)
 # bag=BaggingClassifier(estimator=tree,n_estimators=31)
 # ada=AdaBoostClassifier(estimator=tree,n_estimators=30,algorithm='SAMME')
 # xgb_params={'colsample_bytree': 0.8498791800104656, 'learning_rate': 0.020233442882782587, 'max_depth': 4, 'n_estimators': 469, 'subsample': 0.746529796772373}
-# xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 200,'colsample_bytree': 0.8,'subsample': 0.7}
-# xgb1=xgb.XGBClassifier(**xgb_params)
+xgb_params={ 'learning_rate': 0.1, 'max_depth': 3, 'n_estimators': 200,'colsample_bytree': 0.8,'subsample': 0.7}
+xgb1=xgb.XGBClassifier(**xgb_params)
 #
-models=[gbc,ksvm]
-# model=gbc
+# models=[gbc,ksvm]
+model=gbc
 
-#
-# model.fit(X_train,y_train)
-# print(model.score(X_test,y_test))
-# model.fit(X_std,y)
-# print(model.score(X_std,y))
-# pred=model.predict(ss.fit_transform(X2))#or fit transform????
-# df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
-# df2['Transported']=pred.astype(bool)
-# df2.to_csv('pred.csv',index=False)
+
+model.fit(X_train,y_train)
+print(model.score(X_test,y_test))
+model.fit(X_std,y)
+print(model.score(X_std,y))
+pred=model.predict(ss.fit_transform(X2))#or fit transform????
+pred=np.zeros(len(pred))
+df2=pd.read_csv('spaceship-titanic/sample_submission.csv')
+df2['Transported']=pred.astype(bool)
+df2.to_csv('pred.csv',index=False)
 
 # KFold
 # model=pipe2
-for model in models:
-    scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
-    print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
+# for model in models:
+#     scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
+#     print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
-# scores=cross_val_score(model,X_std,y,cv=8,scoring='accuracy',n_jobs=-1)
-# print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
+scores=cross_val_score(model,X_std,y,cv=10,scoring='accuracy',n_jobs=-1)
+print(f'{model.__str__()[:model.__str__().index("(")]} accuracy: {round(scores.mean(),6)} +- {round(scores.std(),5)}')
 
 
 # print(np.argsort(model.feature_importances_))
